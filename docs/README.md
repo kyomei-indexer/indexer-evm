@@ -1,6 +1,6 @@
 # Documentation
 
-Focused, per-feature docs for `indexer-evm`. Each page covers one capability and — where a flow is involved — ships a Mermaid diagram. The 2,300-line [DOCUMENTATION.md](../DOCUMENTATION.md) at the repo root is the exhaustive reference; the pages here are the digestible version you read when you want to understand one thing.
+Focused, per-feature docs for `indexer-evm`. Each page covers one capability and — where a flow is involved — ships a Mermaid diagram.
 
 ## Start here
 

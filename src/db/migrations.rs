@@ -475,7 +475,7 @@ async fn create_view_function_tables(
 /// - **Conditional aggregates** with `FILTER (WHERE ...)` clauses
 /// - **Array aggregation** with `array_agg()` for collecting unique values
 ///
-/// See `DOCUMENTATION.md` for a full guide on writing custom aggregate expressions.
+/// See `docs/aggregations.md` for a full guide on writing custom aggregate expressions.
 pub async fn create_continuous_aggregates(
     pool: &PgPool,
     schema: &str,

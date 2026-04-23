@@ -1,6 +1,6 @@
 # Kyomei Indexer Configuration
 # Copy this file to config.yaml and adjust values for your deployment.
-# See DOCUMENTATION.md for full reference.
+# See docs/ (start at docs/README.md) for per-feature documentation.
 
 database:
   # PostgreSQL connection string (TimescaleDB recommended)
@@ -16,7 +16,7 @@ database:
 #   batch_notification_interval: 1000
 
 # 3-Schema Architecture
-# Enables zero-downtime deployments (see DOCUMENTATION.md for details).
+# Enables zero-downtime deployments (see docs/schema-model.md for details).
 #
 # data_schema  — shared raw data (raw_events, factory_children)
 # sync_schema  — per-deployment decoded tables + sync workers

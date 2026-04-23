@@ -17,21 +17,22 @@ It exists to solve the real problems dev teams hit in production:
 
 ## Feature overview
 
-| Area | What's supported |
-|---|---|
-| **Block sources** | Plain JSON-RPC, [eRPC](https://github.com/erpc/erpc) proxy, [HyperSync](https://envio.dev/hypersync) — swap via one config key. Automatic fallback RPC per source. |
-| **Contracts** | Static addresses or **factory-discovered** children (e.g. Uniswap V2 pairs). Per-contract `start_block` and ABI. |
-| **Decoding** | Events and function calls decoded against user-supplied ABI JSON files. Per-event tables with `p_*` parameter columns, ready to query. |
-| **Filters** | Per-event conditional filters (`eq / neq / gt / gte / lt / lte / contains`) to skip noisy events at ingest time. |
-| **Call traces** | `debug_traceBlockByNumber` (geth/reth) and `trace_block` (parity/erigon). Captures calldata, return values, gas, and call-tree position. |
-| **Accounts** | Track specific addresses for `transaction:from/to` and internal ETH `transfer:from/to` (the latter via traces). |
-| **Reorgs** | Dependency-ordered reorg detection with configurable `max_reorg_depth` and chain-aware finality. Unstable blocks are rewritten atomically. |
-| **Views** | Periodic view-function reads (`totalSupply`, `balanceOf`, etc.) at configurable block intervals. |
-| **Aggregations** | TimescaleDB **continuous aggregates** with default `event_count` / `tx_count` and user-defined metrics per event table. |
-| **Export / fan-out** | CSV export, Redis Streams publisher, HTTP webhooks with retries. |
-| **Deployment** | 3-schema layout (`data_schema` / `sync_schema` / `user_schema`) enabling zero-downtime cutovers. |
-| **Multi-chain** | One process, one database, one API — N chains in parallel. |
-| **Observability** | Prometheus `/metrics`, JSON logs via `tracing`, `/health`, `/readiness`, sync progress via `/sync`. |
+| Area | What's supported | Docs |
+|---|---|---|
+| **Block sources** | Plain JSON-RPC, [eRPC](https://github.com/erpc/erpc) proxy, [HyperSync](https://envio.dev/hypersync) — swap via one config key. Automatic fallback RPC per source. | [block-sources](./docs/block-sources.md) |
+| **Contracts** | Static addresses or **factory-discovered** children (e.g. Uniswap V2 pairs). Per-contract `start_block` and ABI. | [factory-contracts](./docs/factory-contracts.md) |
+| **Decoding** | Events and function calls decoded against user-supplied ABI JSON files. Per-event tables with `p_*` parameter columns, ready to query. | [abi-decoding](./docs/abi-decoding.md) |
+| **Filters** | Per-event conditional filters (`eq / neq / gt / gte / lt / lte / contains`) to skip noisy events at ingest time. | [filters](./docs/filters.md) |
+| **Call traces** | `debug_traceBlockByNumber` (geth/reth) and `trace_block` (parity/erigon). Captures calldata, return values, gas, and call-tree position. | [traces](./docs/traces.md) |
+| **Accounts** | Track specific addresses for `transaction:from/to` and internal ETH `transfer:from/to` (the latter via traces). | [accounts](./docs/accounts.md) |
+| **Reorgs** | Dependency-ordered reorg detection with configurable `max_reorg_depth` and chain-aware finality. Unstable blocks are rewritten atomically. | [reorg-handling](./docs/reorg-handling.md) |
+| **Views** | Periodic view-function reads (`totalSupply`, `balanceOf`, etc.) at configurable block intervals. | [views](./docs/views.md) |
+| **Aggregations** | TimescaleDB **continuous aggregates** with default `event_count` / `tx_count` and user-defined metrics per event table. | [aggregations](./docs/aggregations.md) |
+| **Export / fan-out** | CSV export, Redis Streams publisher, HTTP webhooks with retries. | [fan-out](./docs/fan-out.md) |
+| **Deployment** | 3-schema layout (`data_schema` / `sync_schema` / `user_schema`) enabling zero-downtime cutovers. | [schema-model](./docs/schema-model.md) |
+| **Multi-chain** | One process, one database, one API — N chains in parallel. | [multi-chain](./docs/multi-chain.md) |
+| **Observability** | Prometheus `/metrics`, JSON logs via `tracing`, `/health`, `/readiness`, sync progress via `/sync`. | [observability](./docs/observability.md) |
+| **Sync engine** | Parallel workers, checkpointed backfill, live follow, `--rebuild-decoded` replay. | [sync-engine](./docs/sync-engine.md) |
 
 ---
 
@@ -92,7 +93,7 @@ After an ABI change or to recover from a crash that left decoded rows incomplete
 
 ## Configuration at a glance
 
-Per-feature pages live under [docs/](./docs/README.md) — each page covers one capability with a Mermaid diagram of the flow. Full flat reference lives in [DOCUMENTATION.md](./DOCUMENTATION.md), and a commented example in [config.example.yaml](./config.example.yaml). The shape:
+Per-feature pages live under [docs/](./docs/README.md) — each page covers one capability with a Mermaid diagram of the flow. A commented end-to-end example lives in [config.example.yaml](./config.example.yaml). The shape:
 
 ```yaml
 database:
@@ -209,7 +210,7 @@ Zero-downtime deployment:
 3. When `/readiness` returns 200, swap the views in `user_schema` to the new `sync_schema`.
 4. Drain and stop the old instance.
 
-Full protocol and SQL in [DOCUMENTATION.md](./DOCUMENTATION.md).
+Full protocol and SQL in [docs/schema-model.md](./docs/schema-model.md).
 
 ---
 
@@ -269,7 +270,7 @@ Releases are cut from `main` via a `vX.Y.Z` tag. The tag push triggers [.github/
 
 1. Creates a draft GitHub Release with auto-generated notes.
 2. Cross-builds release binaries for `x86_64-unknown-linux-gnu`, `aarch64-unknown-linux-gnu`, `x86_64-apple-darwin`, and `aarch64-apple-darwin`.
-3. Packages each binary with `README.md`, `DOCUMENTATION.md`, and `config.example.yaml` into `kyomei-indexer-<tag>-<target>.tar.gz`, plus a sibling `.sha256` checksum.
+3. Packages each binary with `README.md`, the `docs/` directory, and `config.example.yaml` into `kyomei-indexer-<tag>-<target>.tar.gz`, plus a sibling `.sha256` checksum.
 4. Uploads all archives to the GitHub Release.
 5. Publishes the release (removes the draft flag) once all artifacts are uploaded.
 
@@ -291,11 +292,11 @@ That target runs `fmt --check`, `clippy`, and `test` locally, bumps `Cargo.toml`
 indexer-evm/
 ├── src/                    # Rust source (module map above)
 ├── tests/                  # Integration tests + fixtures
+├── docs/                   # Per-feature documentation (start at docs/README.md)
 ├── Cargo.toml              # Binary crate: kyomei-indexer
 ├── Cargo.lock              # Reproducible builds
 ├── Dockerfile              # Multi-stage build, debian-slim runtime
 ├── config.example.yaml     # Annotated config — the fastest way to learn options
-├── DOCUMENTATION.md        # Full reference (config, schema model, operations)
 └── README.md
 ```
 

@@ -3,23 +3,15 @@
 The indexer talks to the chain through a `BlockSource` trait ([src/sources/mod.rs:54-72](../src/sources/mod.rs#L54-L72)). Three implementations ship in-tree and are swappable via one `source.type` key in the config.
 
 ```mermaid
-classDiagram
-    class BlockSource {
-      <<trait>>
-      +get_blocks(range, filter) Vec~BlockWithLogs~
-      +get_latest_block_number() u64
-      +get_block_hash(number) Option~String~
-      +source_type() str
-    }
-    class RpcSource
-    class ErpcSource
-    class HyperSyncSource
-    class FallbackSource
-    BlockSource <|.. RpcSource
-    BlockSource <|.. ErpcSource
-    BlockSource <|.. HyperSyncSource
-    BlockSource <|.. FallbackSource
-    FallbackSource o-- BlockSource : wraps 2 others
+flowchart TD
+    BS["<b>BlockSource</b> (trait)<br/>get_blocks(range, filter)<br/>get_latest_block_number()<br/>get_block_hash(number)<br/>source_type()"]
+
+    BS -.implements.-> RPC[RpcSource]
+    BS -.implements.-> ERPC[ErpcSource]
+    BS -.implements.-> HS[HyperSyncSource]
+    BS -.implements.-> FB[FallbackSource]
+
+    FB -- wraps 2 --> BS
 ```
 
 ## Choosing a source

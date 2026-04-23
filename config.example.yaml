@@ -1,0 +1,308 @@
+# Kyomei Indexer Configuration
+# Copy this file to config.yaml and adjust values for your deployment.
+# See DOCUMENTATION.md for full reference.
+
+database:
+  # PostgreSQL connection string (TimescaleDB recommended)
+  # Supports ${ENV_VAR} expansion
+  connection_string: "${DATABASE_URL}"
+  pool_size: 20
+
+# Redis (optional) — enables real-time event streaming via Redis Streams.
+# When omitted, the indexer runs standalone without event notifications.
+# redis:
+#   url: "${REDIS_URL}"
+#   # Emit a batch notification every N blocks during historic sync
+#   batch_notification_interval: 1000
+
+# 3-Schema Architecture
+# Enables zero-downtime deployments (see DOCUMENTATION.md for details).
+#
+# data_schema  — shared raw data (raw_events, factory_children)
+# sync_schema  — per-deployment decoded tables + sync workers
+# user_schema  — SQL views for querying (points to active sync_schema)
+#
+# Zero-downtime deployment:
+#   1. Deploy new indexer with a different sync_schema name
+#   2. It auto-rebuilds decoded tables from existing raw_events
+#   3. Once live (/readiness returns 200), views are swapped
+#   4. Drain old indexer
+schema:
+  # Internal schema for raw event storage (do not change unless you know what you're doing)
+  data_schema: "kyomei_data"
+  # Per-deployment schema for decoded tables and sync workers.
+  # Same name on restart → resume from last checkpoint.
+  # New name → rebuild decoded tables from raw_events (zero-downtime deployment).
+  sync_schema: "uniswap_v2_sync"
+  # User-facing schema for views — views point to active sync_schema's decoded tables.
+  user_schema: "uniswap_v2"
+
+chain:
+  id: 1
+  name: "ethereum"
+
+# Block source configuration
+# Supported types: rpc, erpc, hypersync
+source:
+  type: "rpc"
+  url: "https://eth.llamarpc.com"
+  # fallback_rpc: "https://rpc.ankr.com/eth"  # optional fallback RPC
+  # finality: 65  # optional, defaults to chain-specific value
+
+# Alternative: HyperSync (faster historical sync)
+# source:
+#   type: "hypersync"
+#   url: "https://eth.hypersync.xyz"
+#   api_token: "${HYPERSYNC_API_TOKEN}"  # optional
+#   fallback_rpc: "https://eth.llamarpc.com"  # auto-resolved for known chains
+
+# Alternative: eRPC proxy
+# source:
+#   type: "erpc"
+#   url: "http://localhost:4000"
+#   project_id: "my-project"
+#   fallback_rpc: "https://eth.llamarpc.com"
+
+sync:
+  # Block to start indexing from
+  start_block: 10000835
+  # Number of parallel workers for historic sync (max 32).
+  # 1 = single-worker sequential mode (rindexer-like), 2+ = multi-worker parallel mode
+  parallel_workers: 4
+  # Max blocks per RPC request (adjust based on provider limits)
+  blocks_per_request: 10000
+  # Blocks per historic worker chunk
+  blocks_per_worker: 250000
+  # Max events buffered in memory before flushing
+  event_buffer_size: 10000
+  # Checkpoint progress every N blocks
+  checkpoint_interval: 500
+  # Max contract addresses per RPC request within a single worker.
+  # When a worker has more addresses, it splits into parallel batches
+  # within the same worker (does not create new workers). Default: 500.
+  # addresses_per_batch: 500
+  # Max consecutive errors in live sync before aborting (prevents silent hangs)
+  # max_live_consecutive_errors: 100
+  # Max concurrent RPC requests across all workers (default: parallel_workers * 2)
+  # Set to 0 to disable the shared semaphore
+  # max_concurrent_requests: 8
+  # Retry configuration for RPC requests
+  retry:
+    # Maximum retry attempts for failed RPC calls
+    max_retries: 5
+    # Initial backoff delay in milliseconds (doubles each retry)
+    initial_backoff_ms: 1000
+    # Maximum backoff delay in milliseconds (cap for exponential growth)
+    max_backoff_ms: 30000
+    # Validate logsBloom to detect invalid eth_getLogs responses.
+    # When enabled, detects blocks where logsBloom indicates logs exist
+    # but eth_getLogs returned zero logs — a known RPC node issue.
+    validate_logs_bloom: true
+    # Maximum retries specifically for logsBloom validation failures
+    bloom_validation_retries: 3
+
+# Contract definitions
+contracts:
+  # Standard contract with a fixed address
+  - name: "UniswapV2Factory"
+    address: "0x5C69bEe701ef814a2B6a3EDD4B1652CB9cc5aA6f"
+    abi_path: "./abis/UniswapV2Factory.json"
+    start_block: 10000835
+
+  # Factory-created contract (dynamic address discovery)
+  - name: "UniswapV2Pair"
+    factory:
+      address: "0x5C69bEe701ef814a2B6a3EDD4B1652CB9cc5aA6f"
+      event: "PairCreated"
+      parameter: "pair"
+      # child_contract_name: "UniswapV2Pair"  # optional, defaults to contract name
+      # child_abi_path: "./abis/UniswapV2Pair.json"  # optional, uses abi_path if not set
+    abi_path: "./abis/UniswapV2Pair.json"
+    start_block: 10000835
+    # Event filters — only store events matching all conditions
+    # filters:
+    #   - event: "Swap"
+    #     conditions:
+    #       - field: "amount0_in"
+    #         op: "gt"         # eq, neq, gt, gte, lt, lte, contains
+    #         value: "0"
+    # View function indexing — periodically call read functions and store results
+    # views:
+    #   - function: "totalSupply"
+    #     interval_blocks: 100     # call every 100 blocks
+    #   - function: "balanceOf"
+    #     interval_blocks: 1000
+    #     params: ["0xdead000000000000000000000000000000000000"]
+
+# Webhooks — POST decoded events to HTTP endpoints
+# webhooks:
+#   - url: "https://api.example.com/events"
+#     events: ["Transfer", "Swap"]  # optional filter, empty = all events
+#     retry_attempts: 3
+#     timeout_secs: 10
+#     headers:
+#       Authorization: "Bearer ${WEBHOOK_TOKEN}"
+
+# CSV Export
+# Write decoded events to per-event-type CSV files for data pipelines or offline analysis.
+# export:
+#   csv:
+#     enabled: true
+#     output_dir: "./data/csv"  # one CSV per event type (e.g., event_erc20_transfer.csv)
+
+# Call Trace Indexing (optional)
+# Index function calls via debug_traceBlockByNumber or trace_block.
+# Captures calldata, return values, gas, and call tree position.
+# traces:
+#   enabled: true
+#   method: "debug"          # "debug" (debug_traceBlockByNumber) or "parity" (trace_block)
+#   tracer: "callTracer"     # tracer config for debug method
+#   contracts:
+#     - name: "UniswapV2Router"
+#       address: "0x7a250d5630B4cF539739dF2C5dAcb4c659F2488D"
+#       abi_path: "./abis/UniswapV2Router.json"  # optional, enables function decoding
+#       start_block: 10000835
+#     - name: "UniswapV2Pair"
+#       factory_ref: "UniswapV2Pair"  # references top-level contracts[] for dynamic addresses
+
+# Account/Transaction Tracking (optional)
+# Track transactions and native ETH transfers per address.
+# accounts:
+#   enabled: true
+#   addresses:
+#     - name: "Treasury"
+#       address: "0xdead000000000000000000000000000000000001"
+#       start_block: 10000835
+#       events: ["transaction:from", "transaction:to", "transfer:from", "transfer:to"]
+#     - name: "HotWallet"
+#       address: "0x1234567890abcdef1234567890abcdef12345678"
+#       events: ["transaction:from", "transaction:to"]
+#   # Note: transfer:from and transfer:to require traces to also be enabled,
+#   # as internal ETH transfers are extracted from call traces.
+
+# Continuous Aggregates (requires TimescaleDB)
+# Auto-refreshing materialized views that provide time-bucketed rollups
+# (e.g., hourly/daily event counts) with zero application code.
+#
+# By default, every decoded event table gets `event_count` and `tx_count`
+# columns. Use `custom` to add domain-specific aggregate expressions
+# over the decoded parameter columns (prefixed with `p_`).
+#
+# aggregations:
+#   enabled: true
+#   intervals: ["1h", "1d"]  # supported: 15m, 30m, 1h, 4h, 1d, 1w
+#   custom:
+#     # ─── DEX Volume Tracking ───
+#     # Track swap volumes, unique traders, and price extremes per time bucket.
+#     - table: "event_uniswap_v2_pair_swap"
+#       metrics:
+#         # Total swap volume per token side (cast hex-encoded uint256 to numeric)
+#         - name: "total_amount0_in"
+#           expr: "SUM(p_amount0_in::numeric)"
+#         - name: "total_amount1_out"
+#           expr: "SUM(p_amount1_out::numeric)"
+#         # Count unique traders (sender is an address-type indexed param)
+#         - name: "unique_senders"
+#           expr: "COUNT(DISTINCT p_sender)"
+#         # Price extremes — useful for OHLC candle construction
+#         - name: "max_amount0_in"
+#           expr: "MAX(p_amount0_in::numeric)"
+#         - name: "min_amount0_in"
+#           expr: "MIN(NULLIF(p_amount0_in::numeric, 0))"
+#
+#     # ─── ERC-20 Transfer Analytics ───
+#     - table: "event_erc20_transfer"
+#       metrics:
+#         - name: "total_transferred"
+#           expr: "SUM(p_value::numeric)"
+#         - name: "transfer_count"
+#           expr: "COUNT(*)"
+#         - name: "unique_senders"
+#           expr: "COUNT(DISTINCT p_from)"
+#         - name: "unique_receivers"
+#           expr: "COUNT(DISTINCT p_to)"
+#         # Average transfer size
+#         - name: "avg_transfer"
+#           expr: "AVG(p_value::numeric)"
+#
+#     # ─── Liquidity Pool Events ───
+#     - table: "event_uniswap_v2_pair_mint"
+#       metrics:
+#         - name: "total_amount0"
+#           expr: "SUM(p_amount0::numeric)"
+#         - name: "total_amount1"
+#           expr: "SUM(p_amount1::numeric)"
+#         - name: "unique_providers"
+#           expr: "COUNT(DISTINCT p_sender)"
+
+reorg:
+  # Maximum reorg depth to track (blocks)
+  max_reorg_depth: 1000
+  # Override chain-specific finality (optional)
+  # finality_blocks: 65
+
+api:
+  host: "0.0.0.0"
+  port: 8080
+
+logging:
+  # Log level: trace, debug, info, warn, error
+  level: "info"
+  # Log format: pretty (human-readable) or json (structured)
+  format: "json"
+
+# ============================================================================
+# MULTI-CHAIN FORMAT (alternative)
+# ============================================================================
+# Run one indexer process for multiple chains. Shared database/redis/api,
+# per-chain source/sync/contracts. Use this format instead of the single-chain
+# format above (not both).
+#
+# database:
+#   connection_string: "${DATABASE_URL}"
+# redis:
+#   url: "${REDIS_URL}"
+# api:
+#   host: "0.0.0.0"
+#   port: 8080
+# logging:
+#   level: "info"
+#   format: "json"
+# chains:
+#   - chain:
+#       id: 1
+#       name: "ethereum"
+#     schema:
+#       sync_schema: "eth_sync"
+#       user_schema: "eth"
+#     source:
+#       type: rpc
+#       url: "${ETH_RPC}"
+#     sync:
+#       start_block: 18000000
+#       parallel_workers: 4
+#     contracts:
+#       - name: "USDC"
+#         address: "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48"
+#         abi_path: "./abis/ERC20.json"
+#         views:
+#           - function: "totalSupply"
+#             interval_blocks: 100
+#     aggregations:
+#       enabled: true
+#       intervals: ["1h", "1d"]
+#   - chain:
+#       id: 137
+#       name: "polygon"
+#     schema:
+#       sync_schema: "poly_sync"
+#       user_schema: "poly"
+#     source:
+#       type: hypersync
+#       fallback_rpc: "https://polygon-rpc.com"
+#     sync:
+#       start_block: 50000000
+#     contracts:
+#       - name: "USDC"
+#         address: "0x2791Bca1f2de4661ED88A30C99A7a9449Aa84174"
+#         abi_path: "./abis/ERC20.json"

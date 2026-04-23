@@ -1,0 +1,82 @@
+[package]
+name = "kyomei-indexer"
+version = "0.1.0"
+edition = "2021"
+description = "High-performance EVM blockchain indexer"
+license = "MIT"
+
+[dependencies]
+# EVM / Blockchain
+alloy = { version = "1.7", features = [
+  "providers",
+  "provider-http",
+  "rpc-types",
+  "transports",
+  "transport-http",
+  "contract",
+  "json-abi",
+  "json",
+  "sol-types",
+  "signers",
+  "serde",
+] }
+alloy-primitives = "1.5"
+alloy-sol-types = "1.5"
+alloy-json-abi = "1.5"
+
+# Database
+sqlx = { version = "0.8", features = [
+  "runtime-tokio-rustls",
+  "postgres",
+  "bigdecimal",
+  "chrono",
+  "json",
+] }
+
+# Redis
+redis = { version = "0.27", features = ["tokio-comp", "streams"] }
+
+# HTTP client
+reqwest = { version = "0.12", features = ["json"] }
+
+# HTTP server
+axum = "0.8"
+tower = "0.5"
+tower-http = { version = "0.6", features = ["cors", "trace"] }
+
+# Config
+serde = { version = "1", features = ["derive"] }
+serde_yaml = "0.9"
+serde_json = "1"
+
+# Async runtime
+tokio = { version = "1", features = ["full"] }
+futures = "0.3"
+rayon = "1.10"
+
+# Logging
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter", "json"] }
+
+# Graceful shutdown
+tokio-util = { version = "0.7", features = ["rt"] }
+
+# Metrics
+metrics = "0.24"
+metrics-exporter-prometheus = "0.16"
+
+# Utilities
+hex = "0.4"
+thiserror = "2"
+anyhow = "1"
+chrono = { version = "0.4", features = ["serde"] }
+clap = { version = "4", features = ["derive"] }
+dotenvy = "0.15"
+regex-lite = "0.1"
+csv = "1.3"
+async-trait = "0.1"
+
+[dev-dependencies]
+tokio-test = "0.4"
+pretty_assertions = "1"
+rstest = "0.23"

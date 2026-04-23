@@ -1,5 +1,7 @@
 # Documentation
 
+> ⚠️ **Beta** — `indexer-evm` is in active beta. APIs, configuration keys, and the database schema may still change between releases. Pin a specific commit or tag for production deployments, and review the changelog before upgrading.
+
 Focused, per-feature docs for `indexer-evm`. Each page covers one capability and — where a flow is involved — ships a Mermaid diagram.
 
 ## Start here

@@ -1,5 +1,7 @@
 # indexer-evm
 
+> ⚠️ **Beta** — this project is in active beta. APIs, configuration keys, and the database schema may still change between releases. Pin a specific commit or tag for production deployments, and review the changelog before upgrading.
+
 A fast, fault-tolerant **EVM blockchain indexer** written in Rust.
 
 This project is extracted from the broader [Kyomei](https://github.com/) stack and focuses on the piece most teams actually need day-to-day: a single, self-contained binary that ingests on-chain data, decodes it against your ABIs, and writes it into Postgres — reliably, at full RPC speed, with zero framework lock-in.
